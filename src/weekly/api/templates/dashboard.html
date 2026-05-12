@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Research Platform</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; padding: 20px; }
+        h1 { color: #58a6ff; margin-bottom: 20px; font-size: 1.5rem; }
+        h2 { color: #8b949e; font-size: 1rem; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+        .stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #21262d; }
+        .stat:last-child { border-bottom: none; }
+        .stat-label { color: #8b949e; }
+        .stat-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+        .status-ok { color: #3fb950; }
+        .status-warn { color: #d29922; }
+        .status-error { color: #f85149; }
+        .btn { background: #238636; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-right: 8px; }
+        .btn:hover { background: #2ea043; }
+        .btn:disabled { background: #30363d; color: #8b949e; cursor: not-allowed; }
+        .btn-secondary { background: #30363d; }
+        .btn-secondary:hover { background: #3d444d; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #21262d; }
+        th { color: #8b949e; font-weight: 500; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+        .tag-running { background: #1f6feb33; color: #58a6ff; }
+        .tag-idle { background: #23862233; color: #3fb950; }
+        #update-msg { margin-top: 12px; font-size: 14px; }
+        .features-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .feature-tag { background: #30363d; padding: 3px 8px; border-radius: 4px; font-size: 12px; color: #c9d1d9; }
+    </style>
+</head>
+<body>
+    <h1>Trading Research Platform</h1>
+
+    <div class="grid">
+        <div class="card">
+            <h2>Database Status</h2>
+            <div class="stat"><span class="stat-label">SQLite Size</span><span class="stat-value">{{ data.db_status.sqlite_size_mb }} MB</span></div>
+            <div class="stat"><span class="stat-label">DuckDB Size</span><span class="stat-value">{{ data.db_status.duckdb_size_mb }} MB</span></div>
+            <div class="stat"><span class="stat-label">Total Tickers</span><span class="stat-value">{{ data.db_status.total_tickers }}</span></div>
+            <div class="stat"><span class="stat-label">Active Tickers</span><span class="stat-value">{{ data.db_status.active_tickers }}</span></div>
+            <div class="stat"><span class="stat-label">Daily Candles</span><span class="stat-value">{{ "{:,}".format(data.db_status.daily_candle_count) }}</span></div>
+            <div class="stat"><span class="stat-label">Weekly Candles</span><span class="stat-value">{{ "{:,}".format(data.db_status.weekly_candle_count) }}</span></div>
+            <div class="stat"><span class="stat-label">Daily Features</span><span class="stat-value">{{ "{:,}".format(data.db_status.daily_feature_count) }}</span></div>
+            <div class="stat"><span class="stat-label">Weekly Features</span><span class="stat-value">{{ "{:,}".format(data.db_status.weekly_feature_count) }}</span></div>
+            <div class="stat"><span class="stat-label">Date Range</span><span class="stat-value">{{ data.db_status.oldest_daily_date or '—' }} → {{ data.db_status.newest_daily_date or '—' }}</span></div>
+        </div>
+
+        <div class="card">
+            <h2>Last Update</h2>
+            {% if data.last_update %}
+            <div class="stat"><span class="stat-label">Job</span><span class="stat-value">{{ data.last_update.job_name }}</span></div>
+            <div class="stat"><span class="stat-label">Trigger</span><span class="stat-value">{{ data.last_update.trigger_type }}</span></div>
+            <div class="stat"><span class="stat-label">Status</span><span class="stat-value">{{ data.last_update.status }}</span></div>
+            <div class="stat"><span class="stat-label">Total</span><span class="stat-value">{{ data.last_update.tickers_total or '—' }}</span></div>
+            <div class="stat"><span class="stat-label">Success</span><span class="stat-value status-ok">{{ data.last_update.tickers_success or '—' }}</span></div>
+            <div class="stat"><span class="stat-label">Failed</span><span class="stat-value {% if data.last_update.tickers_failed %}status-error{% endif %}">{{ data.last_update.tickers_failed or '0' }}</span></div>
+            <div class="stat"><span class="stat-label">Started</span><span class="stat-value">{{ data.last_update.started_at.strftime('%Y-%m-%d %H:%M') if data.last_update.started_at else '—' }}</span></div>
+            <div class="stat"><span class="stat-label">Completed</span><span class="stat-value">{{ data.last_update.completed_at.strftime('%Y-%m-%d %H:%M') if data.last_update.completed_at else '—' }}</span></div>
+            {% else %}
+            <p style="color: #8b949e; padding: 12px 0;">No updates run yet</p>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h2>Scheduler</h2>
+            <div class="stat">
+                <span class="stat-label">Ingestion</span>
+                <span class="tag {% if data.ingestion_running %}tag-running{% else %}tag-idle{% endif %}">
+                    {{ 'Running' if data.ingestion_running else 'Idle' }}
+                </span>
+            </div>
+            {% for job in data.scheduler_jobs %}
+            <div class="stat"><span class="stat-label">{{ job.name }}</span><span class="stat-value">{{ job.next_run or 'Not scheduled' }}</span></div>
+            {% endfor %}
+            <div style="margin-top: 16px;">
+                <button class="btn" onclick="triggerUpdate()" id="update-btn">Update Now</button>
+                <button class="btn btn-secondary" onclick="location.reload()">Refresh</button>
+            </div>
+            <div id="update-msg"></div>
+        </div>
+    </div>
+
+    {% if data.stale_tickers %}
+    <div class="card" style="margin-bottom: 24px;">
+        <h2>Stale Tickers ({{ data.stale_tickers|length }})</h2>
+        <table>
+            <thead><tr><th>Symbol</th><th>Timeframe</th><th>Latest Date</th><th>Days Stale</th></tr></thead>
+            <tbody>
+            {% for t in data.stale_tickers[:20] %}
+            <tr>
+                <td>{{ t.symbol }}</td>
+                <td>{{ t.timeframe }}</td>
+                <td>{{ t.latest_candle_date }}</td>
+                <td class="{% if t.days_stale > 7 %}status-error{% else %}status-warn{% endif %}">{{ t.days_stale }}</td>
+            </tr>
+            {% endfor %}
+            {% if data.stale_tickers|length > 20 %}
+            <tr><td colspan="4" style="color: #8b949e;">... and {{ data.stale_tickers|length - 20 }} more</td></tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h2>Registered Features ({{ data.registered_features|length }})</h2>
+        <div class="features-list">
+            {% for f in data.registered_features %}
+            <span class="feature-tag">{{ f }}</span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+    async function triggerUpdate() {
+        const btn = document.getElementById('update-btn');
+        const msg = document.getElementById('update-msg');
+        btn.disabled = true;
+        msg.textContent = 'Starting...';
+        try {
+            const resp = await fetch('/api/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({timeframes: ['daily', 'weekly']})
+            });
+            const data = await resp.json();
+            msg.textContent = data.message;
+            if (data.started) {
+                msg.style.color = '#3fb950';
+            } else {
+                msg.style.color = '#d29922';
+                btn.disabled = false;
+            }
+        } catch (e) {
+            msg.textContent = 'Error: ' + e.message;
+            msg.style.color = '#f85149';
+            btn.disabled = false;
+        }
+    }
+    </script>
+</body>
+</html>
